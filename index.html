@@ -1,373 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Volume2, VolumeX, User, Trophy, ArrowLeft, Check, X, Play } from 'lucide-react';
-
-// Generiert einfache Töne im Browser ohne externe Dateien
-const playSound = (type, enabled) => {
-  if (!enabled) return;
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathe Trainer</title>
     
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === 'correct') {
-      // Hohes "Kling" für richtige Antworten
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(600, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    } else if (type === 'wrong' || type === 'timeout') {
-      // Tiefes "Tröt" für falsche Antworten oder Zeitablauf
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.3);
-    }
-  } catch (e) {
-    console.error("Audio konnte nicht abgespielt werden:", e);
-  }
-};
-
-// --- Hilfsfunktion zur Aufgabengenerierung ---
-const generateTask = (range, ops) => {
-  // Wähle eine zufällige Operation aus den erlaubten
-  const op = ops[Math.floor(Math.random() * ops.length)];
-  let n1, n2, ans;
-
-  switch (op) {
-    case '+':
-      n1 = Math.floor(Math.random() * (range + 1));
-      n2 = Math.floor(Math.random() * (range - n1 + 1)); // Summe bleibt im Zahlenraum
-      ans = n1 + n2;
-      break;
-    case '-':
-      n1 = Math.floor(Math.random() * (range + 1));
-      n2 = Math.floor(Math.random() * (n1 + 1)); // Keine negativen Ergebnisse
-      ans = n1 - n2;
-      break;
-    case '*':
-      // Bei Multiplikation begrenzen wir die Faktoren so, dass das Produkt im Zahlenraum bleibt
-      const maxFactor = Math.floor(Math.sqrt(range)) * 2; 
-      n1 = Math.floor(Math.random() * Math.min(range, 12)) + 1; // Meistens bis zum kleinen 1x12
-      const maxN2 = Math.floor(range / n1);
-      n2 = Math.floor(Math.random() * maxN2) + 1;
-      // Tausche gelegentlich für mehr Varianz
-      if (Math.random() > 0.5) { const temp = n1; n1 = n2; n2 = temp; }
-      ans = n1 * n2;
-      break;
-    case '/':
-      // Bei Division generieren wir erst das Ergebnis und den Divisor, um Brüche zu vermeiden
-      n2 = Math.floor(Math.random() * 10) + 1; 
-      ans = Math.floor(Math.random() * 10) + 1; 
-      n1 = n2 * ans;
-      // Falls das Ergebnis zu groß ist, drosseln wir es
-      while (n1 > range) {
-        n2 = Math.floor(Math.random() * 5) + 1;
-        ans = Math.floor(Math.random() * 5) + 1;
-        n1 = n2 * ans;
-      }
-      break;
-    default:
-      n1 = 1; n2 = 1; ans = 2;
-  }
-
-  // Ersetze * und / für die Anzeige mit kindgerechteren Symbolen
-  const displayOp = op === '*' ? '·' : op === '/' ? ':' : op;
-  
-  return { n1, n2, op, displayOp, ans };
-};
-
-// --- Konfetti Komponente ---
-const Confetti = () => {
-  const [particles, setParticles] = useState([]);
-
-  useEffect(() => {
-    // Generiere 50 Konfetti-Partikel
-    const newParticles = Array.from({ length: 50 }).map((_, i) => ({
-      id: i,
-      left: Math.random() * 100, // Zufällige horizontale Position
-      animationDuration: Math.random() * 2 + 1, // Zufällige Falldauer
-      color: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'][Math.floor(Math.random() * 5)],
-      delay: Math.random() * 0.5
-    }));
-    setParticles(newParticles);
-  }, []);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
-      {particles.map(p => (
-        <div
-          key={p.id}
-          className="absolute top-[-10%] w-3 h-3 md:w-4 md:h-4 rounded-sm animate-bounce"
-          style={{
-            left: `${p.left}%`,
-            backgroundColor: p.color,
-            animation: `fall ${p.animationDuration}s linear ${p.delay}s forwards`,
-            transform: `rotate(${Math.random() * 360}deg)`
-          }}
-        />
-      ))}
-      <style>{`
-        @keyframes fall {
-          0% { transform: translateY(0vh) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
-        }
-      `}</style>
-    </div>
-  );
-};
-
-// --- Haupt-App ---
-export default function App() {
-  // Grundeinstellungen für die Kinder
-  const [kids, setKids] = useState({
-    kid1: { name: 'Fiete', range: 10, ops: ['+'], timerEnabled: false, timeLimit: 5 },
-    kid2: { name: 'Jonte', range: 100, ops: ['+', '-', '*', '/'], timerEnabled: false, timeLimit: 10 }
-  });
-
-  // App-Zustände
-  const [currentKidId, setCurrentKidId] = useState(null); // null = Startbildschirm
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
-  
-  // Spiel-Zustände
-  const [task, setTask] = useState(null);
-  const [inputValue, setInputValue] = useState('');
-  const [feedback, setFeedback] = useState(null); // 'correct', 'wrong', 'timeout', null
-  const [score, setScore] = useState(0);
-  const [showReward, setShowReward] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(0);
-  
-  const inputRef = useRef(null);
-
-  // Neues Spiel / Neue Aufgabe starten
-  const nextTask = (kidId = currentKidId) => {
-    const userSettings = kids[kidId];
-    const safeOps = userSettings.ops.length > 0 ? userSettings.ops : ['+'];
-    const newTask = generateTask(userSettings.range, safeOps);
+    <!-- Tailwind CSS laden -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    setTask(newTask);
-    setInputValue('');
-    setFeedback(null);
-    setShowReward(false);
+    <!-- React & ReactDOM laden -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     
-    if (userSettings.timerEnabled) {
-      setTimeLeft(userSettings.timeLimit);
-    }
-    
-    setTimeout(() => {
-      if (inputRef.current) inputRef.current.focus();
-    }, 50);
-  };
+    <!-- Babel laden (Übersetzt JSX im Browser) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  // Timer Logik
-  useEffect(() => {
-    if (!currentKidId || !task || feedback !== null || !kids[currentKidId].timerEnabled) return;
-
-    if (timeLeft < 0) {
-      handleTimeout();
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, currentKidId, task, feedback, kids]);
-
-  const handleTimeout = () => {
-    setFeedback('timeout');
-    playSound('timeout', soundEnabled);
-  };
-
-  // Eingabe überprüfen
-  const checkAnswer = (e) => {
-    if (e) e.preventDefault();
-    if (inputValue === '' || feedback !== null) return;
-
-    const answerNum = parseInt(inputValue, 10);
-    if (answerNum === task.ans) {
-      setFeedback('correct');
-      playSound('correct', soundEnabled);
-      const newScore = score + 1;
-      setScore(newScore);
-      
-      if (newScore > 0 && newScore % 5 === 0) {
-        setShowReward(true);
-      } else {
-        setTimeout(() => nextTask(), 1500); 
-      }
-    } else {
-      setFeedback('wrong');
-      playSound('wrong', soundEnabled);
-      setTimeout(() => {
-         setFeedback(null);
-         setInputValue('');
-         setTimeout(() => {
-           if (inputRef.current) inputRef.current.focus();
-         }, 50);
-      }, 2500);
-    }
-  };
-
-  // Hilfsfunktion für die Einstellungen
-  const toggleOperation = (kidId, op) => {
-    setKids(prev => {
-      const userOps = prev[kidId].ops;
-      const newOps = userOps.includes(op) 
-        ? userOps.filter(o => o !== op)
-        : [...userOps, op];
-      
-      return {
-        ...prev,
-        [kidId]: { ...prev[kidId], ops: newOps.length > 0 ? newOps : ['+'] }
-      };
-    });
-  };
-
-  // Hilfsfunktionen für die Kind-Verwaltung
-  const updateKid = (kidId, field, value) => {
-    setKids(prev => ({
-      ...prev,
-      [kidId]: { ...prev[kidId], [field]: value }
-    }));
-  };
-
-  const addKid = () => {
-    const newId = 'kid_' + Date.now();
-    setKids(prev => ({
-      ...prev,
-      [newId]: { name: 'Neues Kind', range: 10, ops: ['+'], timerEnabled: false, timeLimit: 5 }
-    }));
-  };
-
-  const removeKid = (kidId) => {
-    setKids(prev => {
-      const newKids = { ...prev };
-      delete newKids[kidId];
-      return newKids;
-    });
-  };
-
-  // Gemeinsames Modal für Einstellungen
-  const renderSettingsModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold text-slate-800">Einstellungen</h2>
-          <button onClick={() => setShowSettings(false)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="space-y-8">
-          {Object.entries(kids).map(([kidId, kid]) => (
-            /* Änderung: Blaues Layout für die Einstellungs-Karten für mehr Konsistenz */
-            <div key={kidId} className="bg-blue-50 p-4 rounded-2xl border border-blue-100 relative">
-              <button 
-                onClick={() => removeKid(kidId)}
-                className="absolute top-4 right-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                title="Kind löschen"
-              >
-                <X size={20} />
-              </button>
-              
-              <div className="mb-4 pr-10">
-                <label className="block text-sm font-semibold mb-2 text-blue-800">Name des Kindes</label>
-                <input 
-                  type="text" 
-                  value={kid.name}
-                  onChange={(e) => updateKid(kidId, 'name', e.target.value)}
-                  className="w-full md:w-1/2 p-2 border-2 border-blue-200 rounded-xl text-lg font-bold focus:border-blue-400 outline-none"
-                />
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-blue-800">Zahlenraum (bis)</label>
-                  <input 
-                    type="number" 
-                    min="5" max="10000"
-                    value={kid.range}
-                    onChange={(e) => updateKid(kidId, 'range', parseInt(e.target.value) || 10)}
-                    className="w-full p-3 border-2 border-blue-200 rounded-xl text-lg font-bold text-center focus:border-blue-400 outline-none"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold mb-2 text-blue-800">Rechenarten</label>
-                  <div className="flex gap-2">
-                    {['+', '-', '*', '/'].map(op => (
-                      <button
-                        key={op}
-                        onClick={() => toggleOperation(kidId, op)}
-                        className={`w-12 h-12 text-xl font-bold rounded-xl transition-colors ${kid.ops.includes(op) ? 'bg-blue-500 text-white shadow-inner' : 'bg-white border-2 border-blue-200 text-slate-400 hover:border-blue-400'}`}
-                      >
-                        {op === '*' ? '·' : op === '/' ? ':' : op}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 bg-white p-4 rounded-xl border border-blue-100 flex items-center gap-4">
-                  <input 
-                    type="checkbox" 
-                    id={`timer-${kidId}`}
-                    checked={kid.timerEnabled}
-                    onChange={(e) => updateKid(kidId, 'timerEnabled', e.target.checked)}
-                    className="w-6 h-6 rounded text-blue-500"
-                  />
-                  <label htmlFor={`timer-${kidId}`} className="font-semibold flex-1 cursor-pointer text-slate-700">Auf Zeit spielen</label>
-                  
-                  {kid.timerEnabled && (
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="number" 
-                        min="3" max="60"
-                        value={kid.timeLimit}
-                        onChange={(e) => updateKid(kidId, 'timeLimit', parseInt(e.target.value) || 5)}
-                        className="w-20 p-2 border-2 border-blue-200 rounded-lg text-center font-bold outline-none focus:border-blue-400"
-                      />
-                      <span className="text-sm text-slate-600">Sek.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-          
-          <button 
-            onClick={addKid}
-            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl border-2 border-dashed border-blue-300 transition-colors"
-          >
-            + Neues Kind hinzufügen
-          </button>
-        </div>
-        
-        <button 
-          onClick={() => setShowSettings(false)}
-          className="w-full mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl text-xl transition-colors shadow-lg"
-        >
-          Fertig
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen font-sans text-slate-800 flex flex-col relative bg-blue-50">
-      
-      {/* Globale Styles für Eingabefelder (Pfeile ausblenden) */}
-      <style>{`
+    <style>
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
           -webkit-appearance: none;
@@ -376,216 +24,589 @@ export default function App() {
         input[type="number"] {
           -moz-appearance: textfield;
         }
-      `}</style>
+    </style>
+</head>
+<body class="bg-blue-50">
+    <div id="root"></div>
 
-      {!currentKidId ? (
-        /* --- Render Startbildschirm --- */
-        <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
-          
-          <div className="absolute top-6 w-full text-center pointer-events-none">
-            <h2 className="text-2xl md:text-3xl font-extrabold text-blue-200 tracking-widest uppercase">
-              Mathe Trainer
-            </h2>
-          </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-          <div className="absolute top-4 right-4 flex gap-4">
-            <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
-              {soundEnabled ? <Volume2 size={28} /> : <VolumeX size={28} />}
-            </button>
-            <button onClick={() => setShowSettings(true)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
-              <Settings size={28} />
-            </button>
-          </div>
+        // --- Inline Icons (Ersatz für lucide-react) ---
+        const Settings = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+        const Volume2 = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>;
+        const VolumeX = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>;
+        const UserIcon = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+        const TrophyIcon = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>;
+        const ArrowLeft = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>;
+        const Check = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="20 6 9 17 4 12"></polyline></svg>;
+        const XIcon = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>;
+        const Play = ({size=24, className=""}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
 
-          <h1 className="text-4xl md:text-5xl font-bold mb-12 text-center text-blue-600 mt-16">Wer spielt heute?</h1>
-          
-          <div className="flex flex-wrap gap-6 md:gap-8 w-full max-w-4xl justify-center">
-            {Object.entries(kids).map(([kidId, kid]) => (
-              <button
-                key={kidId}
-                onClick={() => {
-                  setCurrentKidId(kidId);
-                  setScore(0);
-                  nextTask(kidId);
-                }}
-                className="w-40 md:w-48 bg-white p-6 md:p-8 rounded-3xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all flex flex-col items-center border-4 border-transparent hover:border-blue-400 group"
-              >
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
-                  <User size={40} className="text-blue-500" />
-                </div>
-                <span className="text-xl md:text-3xl font-bold w-full truncate text-center">{kid.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        /* --- Render Spielbildschirm --- */
-        /* Änderung: Der Hintergrund bleibt blau (flex-1 bg-transparent nutzt das globale bg-blue-50 von oben) */
-        <div className="flex-1 flex flex-col relative">
-          
-          {/* Top Navigation */}
-          <div className="bg-white/80 backdrop-blur-sm p-4 shadow-sm flex justify-between items-center z-10 overflow-x-auto relative min-h-[72px]">
-            <button 
-              onClick={() => setCurrentKidId(null)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full font-semibold transition-colors whitespace-nowrap mr-4 z-10"
-            >
-              <ArrowLeft size={20} />
-              <span className="hidden md:inline">Kind wechseln</span>
-            </button>
+        // Generiert einfache Töne im Browser ohne externe Dateien
+        const playSound = (type, enabled) => {
+          if (!enabled) return;
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
             
-            {/* Änderung: Titel nun ebenfalls im freundlichen Blau-Ton (text-blue-200 statt slate-200) */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 hidden lg:block pointer-events-none">
-              <h2 className="text-xl font-extrabold text-blue-200 tracking-widest uppercase">
-                Mathe Trainer
-              </h2>
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'correct') {
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(600, ctx.currentTime);
+              osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+              gain.gain.setValueAtTime(0.5, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.5);
+            } else if (type === 'wrong' || type === 'timeout') {
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(150, ctx.currentTime);
+              osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
+              gain.gain.setValueAtTime(0.5, ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.3);
+            }
+          } catch (e) {
+            console.error("Audio konnte nicht abgespielt werden:", e);
+          }
+        };
+
+        const generateTask = (range, ops) => {
+          const op = ops[Math.floor(Math.random() * ops.length)];
+          let n1, n2, ans;
+
+          switch (op) {
+            case '+':
+              n1 = Math.floor(Math.random() * (range + 1));
+              n2 = Math.floor(Math.random() * (range - n1 + 1));
+              ans = n1 + n2;
+              break;
+            case '-':
+              n1 = Math.floor(Math.random() * (range + 1));
+              n2 = Math.floor(Math.random() * (n1 + 1));
+              ans = n1 - n2;
+              break;
+            case '*':
+              const maxFactor = Math.floor(Math.sqrt(range)) * 2; 
+              n1 = Math.floor(Math.random() * Math.min(range, 12)) + 1;
+              const maxN2 = Math.floor(range / n1);
+              n2 = Math.floor(Math.random() * maxN2) + 1;
+              if (Math.random() > 0.5) { const temp = n1; n1 = n2; n2 = temp; }
+              ans = n1 * n2;
+              break;
+            case '/':
+              n2 = Math.floor(Math.random() * 10) + 1; 
+              ans = Math.floor(Math.random() * 10) + 1; 
+              n1 = n2 * ans;
+              while (n1 > range) {
+                n2 = Math.floor(Math.random() * 5) + 1;
+                ans = Math.floor(Math.random() * 5) + 1;
+                n1 = n2 * ans;
+              }
+              break;
+            default:
+              n1 = 1; n2 = 1; ans = 2;
+          }
+
+          const displayOp = op === '*' ? '·' : op === '/' ? ':' : op;
+          return { n1, n2, op, displayOp, ans };
+        };
+
+        const preventInvalidChars = (e) => {
+          if (['e', 'E', '+', '-', '.', ','].includes(e.key)) {
+            e.preventDefault();
+          }
+        };
+
+        const Confetti = () => {
+          const [particles, setParticles] = useState([]);
+
+          useEffect(() => {
+            const newParticles = Array.from({ length: 50 }).map((_, i) => ({
+              id: i,
+              left: Math.random() * 100,
+              animationDuration: Math.random() * 2 + 1,
+              color: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'][Math.floor(Math.random() * 5)],
+              delay: Math.random() * 0.5
+            }));
+            setParticles(newParticles);
+          }, []);
+
+          return (
+            <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
+              {particles.map(p => (
+                <div
+                  key={p.id}
+                  className="absolute top-[-10%] w-3 h-3 md:w-4 md:h-4 rounded-sm animate-bounce"
+                  style={{
+                    left: `${p.left}%`,
+                    backgroundColor: p.color,
+                    animation: `fall ${p.animationDuration}s linear ${p.delay}s forwards`,
+                    transform: `rotate(${Math.random() * 360}deg)`
+                  }}
+                />
+              ))}
+              <style>{`
+                @keyframes fall {
+                  0% { transform: translateY(0vh) rotate(0deg); opacity: 1; }
+                  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+                }
+              `}</style>
             </div>
+          );
+        };
 
-            <div className="flex gap-2 md:gap-4 items-center z-10">
-              <div className="flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-full text-blue-800 font-bold whitespace-nowrap">
-                <User size={20} />
-                <span className="max-w-[100px] truncate">{kids[currentKidId]?.name}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full text-yellow-800 font-bold">
-                <Trophy size={20} />
-                {score}
-              </div>
-              <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition-colors">
-                {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
-              </button>
-              <button onClick={() => setShowSettings(true)} className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition-colors">
-                <Settings size={24} />
-              </button>
-            </div>
-          </div>
+        function App() {
+          const [kids, setKids] = useState({
+            kid1: { name: 'Fiete', range: 10, ops: ['+'], timerEnabled: false, timeLimit: 5 },
+            kid2: { name: 'Jonte', range: 100, ops: ['+', '-', '*', '/'], timerEnabled: false, timeLimit: 10 }
+          });
 
-          {/* Hauptbereich (Aufgabe) */}
-          <div className="flex-1 flex flex-col items-center justify-start p-2 md:p-4 overflow-hidden pt-4 sm:pt-8 md:pt-12">
-            {task && !showReward && (
-              <div className="w-full max-w-5xl">
-                
-                {/* Timer Fortschrittsbalken */}
-                {kids[currentKidId]?.timerEnabled && (
-                  <div className="w-full h-4 bg-white/50 rounded-full mb-8 overflow-hidden shadow-inner">
-                    <div 
-                      className={`h-full transition-all duration-1000 ease-linear ${timeLeft > 3 ? 'bg-blue-500' : 'bg-red-500'}`}
-                      style={{ width: `${Math.max(0, (timeLeft / kids[currentKidId].timeLimit) * 100)}%` }}
-                    />
-                  </div>
-                )}
+          const [currentKidId, setCurrentKidId] = useState(null);
+          const [soundEnabled, setSoundEnabled] = useState(true);
+          const [showSettings, setShowSettings] = useState(false);
+          
+          const [task, setTask] = useState(null);
+          const [inputValue, setInputValue] = useState('');
+          const [feedback, setFeedback] = useState(null);
+          const [score, setScore] = useState(0);
+          const [showReward, setShowReward] = useState(false);
+          const [timeLeft, setTimeLeft] = useState(0);
+          
+          const inputRef = useRef(null);
 
-                <div className={`text-center transform transition-all duration-300 w-full py-2 md:py-8 ${
-                    feedback === 'correct' ? 'scale-105' : 
-                    feedback === 'timeout' ? 'opacity-75' : ''
-                  }`}>
-                  
-                  <div className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-widest text-slate-800 flex items-center justify-center gap-2 md:gap-4 flex-nowrap whitespace-nowrap">
-                    <span>{task.n1}</span>
-                    {/* Änderung: Operator ist nun schwarz (text-slate-800) */}
-                    <span className="text-slate-800">{task.displayOp}</span>
-                    <span>{task.n2}</span>
-                    <span>=</span>
-                    
-                    {/* Eingabeformular */}
-                    <form onSubmit={checkAnswer} className="inline-block">
-                      <input
-                        ref={inputRef}
-                        type="number"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        disabled={feedback !== null}
-                        autoFocus
-                        /* Änderung: Eingabetext ist nun schwarz/slate-800. Polsterung (p-0) hinzugefügt für saubere Zentrierung ohne verrutschen */
-                        className={`w-24 sm:w-32 md:w-40 lg:w-48 h-16 sm:h-24 md:h-28 lg:h-32 text-center text-inherit leading-none p-0 rounded-3xl border-4 outline-none transition-colors ${
-                          feedback === 'correct' ? 'border-green-500 text-green-700 bg-white' :
-                          feedback === 'wrong' ? 'border-red-500 text-red-700 bg-white' :
-                          feedback === 'timeout' ? 'border-orange-500 text-orange-700 bg-white' :
-                          'border-blue-200 focus:border-blue-500 text-slate-800 bg-white shadow-inner'
-                        }`}
-                      />
-                      <button type="submit" className="hidden">OK</button>
-                    </form>
-                  </div>
+          const nextTask = (kidId = currentKidId) => {
+            const userSettings = kids[kidId];
+            const safeOps = userSettings.ops.length > 0 ? userSettings.ops : ['+'];
+            
+            const safeRange = parseInt(userSettings.range, 10) > 0 ? parseInt(userSettings.range, 10) : 10;
+            const newTask = generateTask(safeRange, safeOps);
+            
+            setTask(newTask);
+            setInputValue('');
+            setFeedback(null);
+            setShowReward(false);
+            
+            if (userSettings.timerEnabled) {
+              const safeTime = parseInt(userSettings.timeLimit, 10) > 0 ? parseInt(userSettings.timeLimit, 10) : 5;
+              setTimeLeft(safeTime);
+            }
+            
+            setTimeout(() => {
+              if (inputRef.current) inputRef.current.focus();
+            }, 50);
+          };
 
-                  {/* Visuelles Feedback */}
-                  <div className="mt-4 md:mt-8 h-12 md:h-16 flex items-center justify-center">
-                    {feedback === 'correct' && (
-                      <div className="flex items-center gap-4 text-green-600 font-bold text-2xl md:text-3xl animate-bounce">
-                        <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center text-white"><Check size={28}/></div>
-                        Klasse!
-                      </div>
-                    )}
-                    {feedback === 'wrong' && (
-                      <div className="flex items-center gap-4 text-red-600 font-bold text-2xl md:text-3xl">
-                        <div className="w-10 h-10 md:w-12 md:h-12 bg-red-500 rounded-full flex items-center justify-center text-white"><X size={28}/></div>
-                        Oh nein!
-                      </div>
-                    )}
-                    {feedback === 'timeout' && (
-                      <div className="flex items-center gap-4 text-orange-600 font-bold text-2xl md:text-3xl">
-                        <div className="w-10 h-10 md:w-12 md:h-12 bg-orange-500 rounded-full flex items-center justify-center text-white"><X size={28}/></div>
-                        Zu langsam!
-                      </div>
-                    )}
-                  </div>
+          useEffect(() => {
+            if (!currentKidId || !task || feedback !== null || !kids[currentKidId].timerEnabled) return;
+
+            if (timeLeft < 0) {
+              handleTimeout();
+              return;
+            }
+
+            const timer = setInterval(() => {
+              setTimeLeft(prev => prev - 1);
+            }, 1000);
+
+            return () => clearInterval(timer);
+          }, [timeLeft, currentKidId, task, feedback, kids]);
+
+          const handleTimeout = () => {
+            setFeedback('timeout');
+            playSound('timeout', soundEnabled);
+          };
+
+          const checkAnswer = (e) => {
+            if (e) e.preventDefault();
+            if (inputValue === '' || feedback !== null) return;
+
+            const answerNum = parseInt(inputValue, 10);
+            if (isNaN(answerNum)) return;
+
+            if (answerNum === task.ans) {
+              setFeedback('correct');
+              playSound('correct', soundEnabled);
+              const newScore = score + 1;
+              setScore(newScore);
+              
+              if (newScore > 0 && newScore % 5 === 0) {
+                setShowReward(true);
+              } else {
+                setTimeout(() => nextTask(), 1500); 
+              }
+            } else {
+              setFeedback('wrong');
+              playSound('wrong', soundEnabled);
+              setTimeout(() => {
+                 setFeedback(null);
+                 setInputValue('');
+                 setTimeout(() => {
+                   if (inputRef.current) inputRef.current.focus();
+                 }, 50);
+              }, 2500);
+            }
+          };
+
+          const toggleOperation = (kidId, op) => {
+            setKids(prev => {
+              const userOps = prev[kidId].ops;
+              const newOps = userOps.includes(op) 
+                ? userOps.filter(o => o !== op)
+                : [...userOps, op];
+              
+              return {
+                ...prev,
+                [kidId]: { ...prev[kidId], ops: newOps.length > 0 ? newOps : ['+'] }
+              };
+            });
+          };
+
+          const updateKid = (kidId, field, value) => {
+            setKids(prev => ({
+              ...prev,
+              [kidId]: { ...prev[kidId], [field]: value }
+            }));
+          };
+
+          const addKid = () => {
+            const newId = 'kid_' + Date.now();
+            setKids(prev => ({
+              ...prev,
+              [newId]: { name: 'Neues Kind', range: 10, ops: ['+'], timerEnabled: false, timeLimit: 5 }
+            }));
+          };
+
+          const removeKid = (kidId) => {
+            setKids(prev => {
+              const newKids = { ...prev };
+              delete newKids[kidId];
+              return newKids;
+            });
+          };
+
+          const renderSettingsModal = () => (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-3xl font-bold text-slate-800">Einstellungen</h2>
+                  <button onClick={() => setShowSettings(false)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100">
+                    <XIcon size={24} />
+                  </button>
                 </div>
 
-                {/* Aktionstasten auf Mobilgeräten zur leichteren Bestätigung */}
-                {feedback === null && (
-                   <div className="mt-4 flex justify-center md:hidden">
-                     <button 
-                        onClick={checkAnswer}
-                        className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-xl active:scale-95 transition-transform"
+                <div className="space-y-8">
+                  {Object.entries(kids).map(([kidId, kid]) => (
+                    <div key={kidId} className="bg-blue-50 p-4 rounded-2xl border border-blue-100 relative">
+                      <button 
+                        onClick={() => removeKid(kidId)}
+                        className="absolute top-4 right-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                        title="Kind löschen"
                       >
-                        <Check size={40} />
-                     </button>
-                   </div>
-                )}
-                
-                {/* Weiter-Button, wenn Zeit abgelaufen */}
-                {feedback === 'timeout' && (
-                  <div className="mt-4 flex justify-center">
-                    <button 
-                      onClick={() => nextTask()}
-                      className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-8 py-4 text-xl md:text-2xl font-bold shadow-xl flex items-center gap-2"
-                    >
-                      <Play size={28} />
-                      Nächste Aufgabe
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                        <XIcon size={20} />
+                      </button>
+                      
+                      <div className="mb-4 pr-10">
+                        <label className="block text-sm font-semibold mb-2 text-blue-800">Name des Kindes</label>
+                        <input 
+                          type="text" 
+                          value={kid.name}
+                          onChange={(e) => updateKid(kidId, 'name', e.target.value)}
+                          className="w-full md:w-1/2 p-2 border-2 border-blue-200 rounded-xl text-lg font-bold focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                      
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold mb-2 text-blue-800">Zahlenraum (bis)</label>
+                          <input 
+                            type="number" 
+                            min="5" max="10000"
+                            value={kid.range}
+                            onChange={(e) => updateKid(kidId, 'range', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                            onBlur={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (isNaN(val) || val < 5) updateKid(kidId, 'range', 10);
+                            }}
+                            onKeyDown={preventInvalidChars}
+                            className="w-full p-3 border-2 border-blue-200 rounded-xl text-lg font-bold text-center focus:border-blue-400 outline-none"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold mb-2 text-blue-800">Rechenarten</label>
+                          <div className="flex gap-2">
+                            {['+', '-', '*', '/'].map(op => (
+                              <button
+                                key={op}
+                                onClick={() => toggleOperation(kidId, op)}
+                                className={`w-12 h-12 text-xl font-bold rounded-xl transition-colors ${kid.ops.includes(op) ? 'bg-blue-500 text-white shadow-inner' : 'bg-white border-2 border-blue-200 text-slate-400 hover:border-blue-400'}`}
+                              >
+                                {op === '*' ? '·' : op === '/' ? ':' : op}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
 
-            {/* Belohnungs-Bildschirm (Pokal und Konfetti) */}
-            {showReward && (
-              <div className="text-center flex flex-col items-center justify-center z-40 bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl w-full max-w-2xl">
-                <Confetti />
-                <div className="text-yellow-400 mb-6 animate-bounce">
-                  <Trophy size={150} />
+                        <div className="md:col-span-2 bg-white p-4 rounded-xl border border-blue-100 flex items-center gap-4">
+                          <input 
+                            type="checkbox" 
+                            id={`timer-${kidId}`}
+                            checked={kid.timerEnabled}
+                            onChange={(e) => updateKid(kidId, 'timerEnabled', e.target.checked)}
+                            className="w-6 h-6 rounded text-blue-500"
+                          />
+                          <label htmlFor={`timer-${kidId}`} className="font-semibold flex-1 cursor-pointer text-slate-700">Auf Zeit spielen</label>
+                          
+                          {kid.timerEnabled && (
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="number" 
+                                min="3" max="60"
+                                value={kid.timeLimit}
+                                onChange={(e) => updateKid(kidId, 'timeLimit', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (isNaN(val) || val < 3) updateKid(kidId, 'timeLimit', 5);
+                                }}
+                                onKeyDown={preventInvalidChars}
+                                className="w-20 p-2 border-2 border-blue-200 rounded-lg text-center font-bold outline-none focus:border-blue-400"
+                              />
+                              <span className="text-sm text-slate-600">Sek.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <button 
+                    onClick={addKid}
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold py-4 rounded-2xl border-2 border-dashed border-blue-300 transition-colors"
+                  >
+                    + Neues Kind hinzufügen
+                  </button>
                 </div>
-                <h2 className="text-3xl md:text-5xl font-extrabold mb-4 text-slate-800">Super gemacht, {kids[currentKidId]?.name}!</h2>
-                <p className="text-lg md:text-2xl text-slate-500 mb-12">{score} Aufgaben richtig gelöst!</p>
+                
                 <button 
-                  onClick={() => nextTask()}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-full text-xl md:text-2xl font-bold shadow-xl transform transition-transform active:scale-95 flex items-center gap-3"
+                  onClick={() => setShowSettings(false)}
+                  className="w-full mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl text-xl transition-colors shadow-lg"
                 >
-                  <Play size={32} />
-                  Weiter spielen
+                  Fertig
                 </button>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          );
 
-      {/* Settings Modal (Global) */}
-      {showSettings && renderSettingsModal()}
+          return (
+            <div className="min-h-screen font-sans text-slate-800 flex flex-col relative bg-blue-50">
+              
+              {!currentKidId ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-4 relative pt-24 md:pt-4">
+                  
+                  <div className="absolute top-4 right-4 flex gap-3 z-10">
+                    <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
+                      {soundEnabled ? <Volume2 size={28} /> : <VolumeX size={28} />}
+                    </button>
+                    <button onClick={() => setShowSettings(true)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
+                      <Settings size={28} />
+                    </button>
+                  </div>
 
-      {/* Footer - Signatur (passt sich nun dem blauen Design an) */}
-      <div className="py-3 text-center text-blue-300 text-sm font-medium z-10 pointer-events-none mt-auto">
-        &copy; etechnik3r development
-      </div>
+                  <div className="w-full text-center pointer-events-none mb-4 md:absolute md:top-6 md:mb-0">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-blue-300 tracking-widest uppercase">
+                      Mathe Trainer
+                    </h2>
+                  </div>
 
-    </div>
-  );
-}
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-10 text-center text-blue-600 mt-4 md:mt-16">Wer spielt heute?</h1>
+                  
+                  <div className="flex flex-wrap gap-6 md:gap-8 w-full max-w-4xl justify-center">
+                    {Object.entries(kids).map(([kidId, kid]) => (
+                      <button
+                        key={kidId}
+                        onClick={() => {
+                          setCurrentKidId(kidId);
+                          setScore(0);
+                          nextTask(kidId);
+                        }}
+                        className="w-40 md:w-48 bg-white p-6 md:p-8 rounded-3xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all flex flex-col items-center border-4 border-transparent hover:border-blue-400 group"
+                      >
+                        <div className="w-20 h-20 md:w-24 md:h-24 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
+                          <UserIcon size={40} className="text-blue-500" />
+                        </div>
+                        <span className="text-xl md:text-3xl font-bold w-full truncate text-center">{kid.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col relative">
+                  
+                  <div className="bg-white/80 backdrop-blur-sm p-4 shadow-sm flex justify-between items-center z-10 overflow-x-auto relative min-h-[72px]">
+                    <button 
+                      onClick={() => setCurrentKidId(null)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full font-semibold transition-colors whitespace-nowrap mr-4 z-10"
+                    >
+                      <ArrowLeft size={20} />
+                      <span className="hidden md:inline">Kind wechseln</span>
+                    </button>
+                    
+                    <div className="absolute left-1/2 transform -translate-x-1/2 hidden lg:block pointer-events-none">
+                      <h2 className="text-xl font-extrabold text-blue-200 tracking-widest uppercase">
+                        Mathe Trainer
+                      </h2>
+                    </div>
+
+                    <div className="flex gap-2 md:gap-4 items-center z-10">
+                      <div className="flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-full text-blue-800 font-bold whitespace-nowrap">
+                        <UserIcon size={20} />
+                        <span className="max-w-[100px] truncate">{kids[currentKidId]?.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full text-yellow-800 font-bold">
+                        <TrophyIcon size={20} />
+                        {score}
+                      </div>
+                      <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition-colors">
+                        {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+                      </button>
+                      <button onClick={() => setShowSettings(true)} className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition-colors">
+                        <Settings size={24} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col items-center justify-start pt-4 sm:pt-8 md:pt-12 p-2 md:p-4 overflow-hidden">
+                    {task && !showReward && (
+                      <div className="w-full max-w-5xl">
+                        
+                        {kids[currentKidId]?.timerEnabled && (
+                          <div className="w-full h-4 bg-white/50 rounded-full mb-8 overflow-hidden shadow-inner">
+                            <div 
+                              className={`h-full transition-all duration-1000 ease-linear ${timeLeft > 3 ? 'bg-blue-500' : 'bg-red-500'}`}
+                              style={{ width: `${Math.max(0, (timeLeft / kids[currentKidId].timeLimit) * 100)}%` }}
+                            />
+                          </div>
+                        )}
+
+                        <div className={`text-center transform transition-all duration-300 w-full py-2 md:py-8 ${
+                            feedback === 'correct' ? 'scale-105' : 
+                            feedback === 'timeout' ? 'opacity-75' : ''
+                          }`}>
+                          
+                          <div className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-widest text-slate-800 flex items-center justify-center gap-2 md:gap-4 flex-nowrap whitespace-nowrap">
+                            <span>{task.n1}</span>
+                            <span className="text-slate-800">{task.displayOp}</span>
+                            <span>{task.n2}</span>
+                            <span>=</span>
+                            
+                            <form onSubmit={checkAnswer} className="inline-block">
+                              <input
+                                ref={inputRef}
+                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                onKeyDown={preventInvalidChars}
+                                disabled={feedback !== null}
+                                autoFocus
+                                className={`w-24 sm:w-32 md:w-40 lg:w-48 h-16 sm:h-24 md:h-28 lg:h-32 text-center text-inherit leading-none p-0 rounded-3xl border-4 outline-none transition-colors ${
+                                  feedback === 'correct' ? 'border-green-500 text-green-700 bg-white' :
+                                  feedback === 'wrong' ? 'border-red-500 text-red-700 bg-white' :
+                                  feedback === 'timeout' ? 'border-orange-500 text-orange-700 bg-white' :
+                                  'border-blue-200 focus:border-blue-500 text-slate-800 bg-white shadow-inner'
+                                }`}
+                              />
+                              <button type="submit" className="hidden">OK</button>
+                            </form>
+                          </div>
+
+                          <div className="mt-4 md:mt-8 h-12 md:h-16 flex items-center justify-center">
+                            {feedback === 'correct' && (
+                              <div className="flex items-center gap-4 text-green-600 font-bold text-2xl md:text-3xl animate-bounce">
+                                <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center text-white"><Check size={28}/></div>
+                                Klasse!
+                              </div>
+                            )}
+                            {feedback === 'wrong' && (
+                              <div className="flex items-center gap-4 text-red-600 font-bold text-2xl md:text-3xl">
+                                <div className="w-10 h-10 md:w-12 md:h-12 bg-red-500 rounded-full flex items-center justify-center text-white"><XIcon size={28}/></div>
+                                Oh nein!
+                              </div>
+                            )}
+                            {feedback === 'timeout' && (
+                              <div className="flex items-center gap-4 text-orange-600 font-bold text-2xl md:text-3xl">
+                                <div className="w-10 h-10 md:w-12 md:h-12 bg-orange-500 rounded-full flex items-center justify-center text-white"><XIcon size={28}/></div>
+                                Zu langsam!
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {feedback === null && (
+                           <div className="mt-4 flex justify-center md:hidden">
+                             <button 
+                                onClick={checkAnswer}
+                                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-xl active:scale-95 transition-transform"
+                              >
+                                <Check size={40} />
+                             </button>
+                           </div>
+                        )}
+                        
+                        {feedback === 'timeout' && (
+                          <div className="mt-4 flex justify-center">
+                            <button 
+                              onClick={() => nextTask()}
+                              className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-8 py-4 text-xl md:text-2xl font-bold shadow-xl flex items-center gap-2"
+                            >
+                              <Play size={28} />
+                              Nächste Aufgabe
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {showReward && (
+                      <div className="text-center flex flex-col items-center justify-center z-40 bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl w-full max-w-2xl">
+                        <Confetti />
+                        <div className="text-yellow-400 mb-6 animate-bounce">
+                          <TrophyIcon size={150} />
+                        </div>
+                        <h2 className="text-3xl md:text-5xl font-extrabold mb-4 text-slate-800">Super gemacht, {kids[currentKidId]?.name}!</h2>
+                        <p className="text-lg md:text-2xl text-slate-500 mb-12">{score} Aufgaben richtig gelöst!</p>
+                        <button 
+                          onClick={() => nextTask()}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-full text-xl md:text-2xl font-bold shadow-xl transform transition-transform active:scale-95 flex items-center gap-3"
+                        >
+                          <Play size={32} />
+                          Weiter spielen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {showSettings && renderSettingsModal()}
+
+              <div className="py-3 text-center text-blue-300 text-sm font-medium z-10 pointer-events-none mt-auto">
+                &copy; etechnik3r development
+              </div>
+
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
