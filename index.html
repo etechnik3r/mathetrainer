@@ -386,15 +386,9 @@
             <div className="min-h-screen font-sans text-slate-800 flex flex-col relative bg-blue-50">
               
               {!currentKidId ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+                <div className="flex-1 flex flex-col items-center justify-center p-4 relative pt-24 md:pt-4">
                   
-                  <div className="absolute top-6 w-full text-center pointer-events-none">
-                    <h2 className="text-2xl md:text-3xl font-extrabold text-blue-200 tracking-widest uppercase">
-                      Mathe Trainer
-                    </h2>
-                  </div>
-
-                  <div className="absolute top-4 right-4 flex gap-4">
+                  <div className="absolute top-4 right-4 flex gap-3 z-10">
                     <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
                       {soundEnabled ? <Volume2 size={28} /> : <VolumeX size={28} />}
                     </button>
@@ -403,7 +397,13 @@
                     </button>
                   </div>
 
-                  <h1 className="text-4xl md:text-5xl font-bold mb-12 text-center text-blue-600 mt-16">Wer spielt heute?</h1>
+                  <div className="w-full text-center pointer-events-none mb-4 md:absolute md:top-6 md:mb-0">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-blue-300 tracking-widest uppercase">
+                      Mathe Trainer
+                    </h2>
+                  </div>
+
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-10 text-center text-blue-600 mt-4 md:mt-16">Wer spielt heute?</h1>
                   
                   <div className="flex flex-wrap gap-6 md:gap-8 w-full max-w-4xl justify-center">
                     {Object.entries(kids).map(([kidId, kid]) => (
@@ -460,7 +460,7 @@
                     </div>
                   </div>
 
-                  <div className="flex-1 flex flex-col items-center justify-center p-2 md:p-4 overflow-hidden">
+                  <div className="flex-1 flex flex-col items-center justify-start pt-4 sm:pt-8 md:pt-12 p-2 md:p-4 overflow-hidden">
                     {task && !showReward && (
                       <div className="w-full max-w-5xl">
                         
