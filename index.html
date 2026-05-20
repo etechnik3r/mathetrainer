@@ -127,7 +127,7 @@ const Confetti = () => {
 
 // --- Haupt-App ---
 export default function App() {
-  // Grundeinstellungen für die Kinder (jetzt flexibel für beliebig viele)
+  // Grundeinstellungen für die Kinder
   const [kids, setKids] = useState({
     kid1: { name: 'Fiete', range: 10, ops: ['+'], timerEnabled: false, timeLimit: 5 },
     kid2: { name: 'Jonte', range: 100, ops: ['+', '-', '*', '/'], timerEnabled: false, timeLimit: 10 }
@@ -172,7 +172,6 @@ export default function App() {
   useEffect(() => {
     if (!currentKidId || !task || feedback !== null || !kids[currentKidId].timerEnabled) return;
 
-    // Wenn timeLeft < 0 ist, hat der Balken sein Ende optisch erreicht
     if (timeLeft < 0) {
       handleTimeout();
       return;
@@ -210,11 +209,9 @@ export default function App() {
     } else {
       setFeedback('wrong');
       playSound('wrong', soundEnabled);
-      // "Oh nein" Bildschirm länger anzeigen (2,5s statt 1,5s)
       setTimeout(() => {
          setFeedback(null);
          setInputValue('');
-         // Kurzer Delay, damit das Feld im DOM wieder ansprechbar ist, dann Fokus setzen
          setTimeout(() => {
            if (inputRef.current) inputRef.current.focus();
          }, 50);
@@ -261,58 +258,59 @@ export default function App() {
     });
   };
 
-  // Gemeinsames Modal für Einstellungen, das überall genutzt werden kann
+  // Gemeinsames Modal für Einstellungen
   const renderSettingsModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-3xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-3xl font-bold">Einstellungen</h2>
-          <button onClick={() => setShowSettings(false)} className="p-2 bg-slate-100 rounded-full hover:bg-slate-200">
+          <h2 className="text-3xl font-bold text-slate-800">Einstellungen</h2>
+          <button onClick={() => setShowSettings(false)} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100">
             <X size={24} />
           </button>
         </div>
 
         <div className="space-y-8">
           {Object.entries(kids).map(([kidId, kid]) => (
-            <div key={kidId} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 relative">
+            /* Änderung: Blaues Layout für die Einstellungs-Karten für mehr Konsistenz */
+            <div key={kidId} className="bg-blue-50 p-4 rounded-2xl border border-blue-100 relative">
               <button 
                 onClick={() => removeKid(kidId)}
-                className="absolute top-4 right-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                className="absolute top-4 right-4 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                 title="Kind löschen"
               >
                 <X size={20} />
               </button>
               
               <div className="mb-4 pr-10">
-                <label className="block text-sm font-semibold mb-2 text-slate-600">Name des Kindes</label>
+                <label className="block text-sm font-semibold mb-2 text-blue-800">Name des Kindes</label>
                 <input 
                   type="text" 
                   value={kid.name}
                   onChange={(e) => updateKid(kidId, 'name', e.target.value)}
-                  className="w-full md:w-1/2 p-2 border-2 border-slate-300 rounded-xl text-lg font-bold"
+                  className="w-full md:w-1/2 p-2 border-2 border-blue-200 rounded-xl text-lg font-bold focus:border-blue-400 outline-none"
                 />
               </div>
               
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Zahlenraum (bis)</label>
+                  <label className="block text-sm font-semibold mb-2 text-blue-800">Zahlenraum (bis)</label>
                   <input 
                     type="number" 
                     min="5" max="10000"
                     value={kid.range}
                     onChange={(e) => updateKid(kidId, 'range', parseInt(e.target.value) || 10)}
-                    className="w-full p-3 border-2 border-slate-300 rounded-xl text-lg font-bold text-center"
+                    className="w-full p-3 border-2 border-blue-200 rounded-xl text-lg font-bold text-center focus:border-blue-400 outline-none"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Rechenarten</label>
+                  <label className="block text-sm font-semibold mb-2 text-blue-800">Rechenarten</label>
                   <div className="flex gap-2">
                     {['+', '-', '*', '/'].map(op => (
                       <button
                         key={op}
                         onClick={() => toggleOperation(kidId, op)}
-                        className={`w-12 h-12 text-xl font-bold rounded-xl transition-colors ${kid.ops.includes(op) ? 'bg-blue-500 text-white shadow-inner' : 'bg-white border-2 border-slate-200 text-slate-400'}`}
+                        className={`w-12 h-12 text-xl font-bold rounded-xl transition-colors ${kid.ops.includes(op) ? 'bg-blue-500 text-white shadow-inner' : 'bg-white border-2 border-blue-200 text-slate-400 hover:border-blue-400'}`}
                       >
                         {op === '*' ? '·' : op === '/' ? ':' : op}
                       </button>
@@ -320,7 +318,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2 bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4">
+                <div className="md:col-span-2 bg-white p-4 rounded-xl border border-blue-100 flex items-center gap-4">
                   <input 
                     type="checkbox" 
                     id={`timer-${kidId}`}
@@ -328,7 +326,7 @@ export default function App() {
                     onChange={(e) => updateKid(kidId, 'timerEnabled', e.target.checked)}
                     className="w-6 h-6 rounded text-blue-500"
                   />
-                  <label htmlFor={`timer-${kidId}`} className="font-semibold flex-1 cursor-pointer">Auf Zeit spielen</label>
+                  <label htmlFor={`timer-${kidId}`} className="font-semibold flex-1 cursor-pointer text-slate-700">Auf Zeit spielen</label>
                   
                   {kid.timerEnabled && (
                     <div className="flex items-center gap-2">
@@ -337,9 +335,9 @@ export default function App() {
                         min="3" max="60"
                         value={kid.timeLimit}
                         onChange={(e) => updateKid(kidId, 'timeLimit', parseInt(e.target.value) || 5)}
-                        className="w-20 p-2 border-2 border-slate-300 rounded-lg text-center font-bold"
+                        className="w-20 p-2 border-2 border-blue-200 rounded-lg text-center font-bold outline-none focus:border-blue-400"
                       />
-                      <span className="text-sm">Sek.</span>
+                      <span className="text-sm text-slate-600">Sek.</span>
                     </div>
                   )}
                 </div>
@@ -366,9 +364,9 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen font-sans text-slate-800 flex flex-col relative">
+    <div className="min-h-screen font-sans text-slate-800 flex flex-col relative bg-blue-50">
       
-      {/* Globale Styles für Eingabefelder (Zentrierung und Pfeile ausblenden) */}
+      {/* Globale Styles für Eingabefelder (Pfeile ausblenden) */}
       <style>{`
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
@@ -382,7 +380,7 @@ export default function App() {
 
       {!currentKidId ? (
         /* --- Render Startbildschirm --- */
-        <div className="flex-1 bg-blue-50 flex flex-col items-center justify-center p-4 relative">
+        <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
           
           <div className="absolute top-6 w-full text-center pointer-events-none">
             <h2 className="text-2xl md:text-3xl font-extrabold text-blue-200 tracking-widest uppercase">
@@ -391,10 +389,10 @@ export default function App() {
           </div>
 
           <div className="absolute top-4 right-4 flex gap-4">
-            <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-white rounded-full shadow-md text-slate-600 hover:text-slate-900 transition-colors">
+            <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
               {soundEnabled ? <Volume2 size={28} /> : <VolumeX size={28} />}
             </button>
-            <button onClick={() => setShowSettings(true)} className="p-2 bg-white rounded-full shadow-md text-slate-600 hover:text-slate-900 transition-colors">
+            <button onClick={() => setShowSettings(true)} className="p-2 bg-white rounded-full shadow-md text-blue-600 hover:text-blue-800 transition-colors">
               <Settings size={28} />
             </button>
           </div>
@@ -422,19 +420,22 @@ export default function App() {
         </div>
       ) : (
         /* --- Render Spielbildschirm --- */
-        <div className="flex-1 bg-slate-50 flex flex-col relative">
+        /* Änderung: Der Hintergrund bleibt blau (flex-1 bg-transparent nutzt das globale bg-blue-50 von oben) */
+        <div className="flex-1 flex flex-col relative">
+          
           {/* Top Navigation */}
-          <div className="bg-white p-4 shadow-sm flex justify-between items-center z-10 overflow-x-auto relative min-h-[72px]">
+          <div className="bg-white/80 backdrop-blur-sm p-4 shadow-sm flex justify-between items-center z-10 overflow-x-auto relative min-h-[72px]">
             <button 
               onClick={() => setCurrentKidId(null)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full font-semibold transition-colors whitespace-nowrap mr-4 z-10"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full font-semibold transition-colors whitespace-nowrap mr-4 z-10"
             >
               <ArrowLeft size={20} />
               <span className="hidden md:inline">Kind wechseln</span>
             </button>
             
+            {/* Änderung: Titel nun ebenfalls im freundlichen Blau-Ton (text-blue-200 statt slate-200) */}
             <div className="absolute left-1/2 transform -translate-x-1/2 hidden lg:block pointer-events-none">
-              <h2 className="text-xl font-extrabold text-slate-200 tracking-widest uppercase">
+              <h2 className="text-xl font-extrabold text-blue-200 tracking-widest uppercase">
                 Mathe Trainer
               </h2>
             </div>
@@ -448,10 +449,10 @@ export default function App() {
                 <Trophy size={20} />
                 {score}
               </div>
-              <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition-colors">
+              <button onClick={() => setSoundEnabled(!soundEnabled)} className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition-colors">
                 {soundEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
               </button>
-              <button onClick={() => setShowSettings(true)} className="p-2 bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 transition-colors">
+              <button onClick={() => setShowSettings(true)} className="p-2 bg-blue-50 rounded-full text-blue-600 hover:bg-blue-100 transition-colors">
                 <Settings size={24} />
               </button>
             </div>
@@ -464,7 +465,7 @@ export default function App() {
                 
                 {/* Timer Fortschrittsbalken */}
                 {kids[currentKidId]?.timerEnabled && (
-                  <div className="w-full h-4 bg-slate-200 rounded-full mb-8 overflow-hidden">
+                  <div className="w-full h-4 bg-white/50 rounded-full mb-8 overflow-hidden shadow-inner">
                     <div 
                       className={`h-full transition-all duration-1000 ease-linear ${timeLeft > 3 ? 'bg-blue-500' : 'bg-red-500'}`}
                       style={{ width: `${Math.max(0, (timeLeft / kids[currentKidId].timeLimit) * 100)}%` }}
@@ -472,15 +473,16 @@ export default function App() {
                   </div>
                 )}
 
-                <div className={`bg-white rounded-[3rem] shadow-2xl p-6 md:p-12 text-center transform transition-all duration-300 w-full ${
-                    feedback === 'correct' ? 'bg-green-100 scale-105' : 
+                <div className={`bg-white rounded-[3rem] shadow-xl p-6 md:p-12 text-center transform transition-all duration-300 w-full ${
+                    feedback === 'correct' ? 'bg-green-100 scale-105 shadow-2xl' : 
                     feedback === 'wrong' ? 'bg-red-100' : 
                     feedback === 'timeout' ? 'bg-orange-100 opacity-75' : ''
                   }`}>
                   
                   <div className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-widest text-slate-800 flex items-center justify-center gap-2 md:gap-4 flex-nowrap whitespace-nowrap">
                     <span>{task.n1}</span>
-                    <span className="text-blue-500">{task.displayOp}</span>
+                    {/* Änderung: Operator ist nun schwarz (text-slate-800) */}
+                    <span className="text-slate-800">{task.displayOp}</span>
                     <span>{task.n2}</span>
                     <span>=</span>
                     
@@ -493,11 +495,12 @@ export default function App() {
                         onChange={(e) => setInputValue(e.target.value)}
                         disabled={feedback !== null}
                         autoFocus
-                        className={`w-24 sm:w-32 md:w-40 lg:w-48 h-16 sm:h-24 md:h-28 lg:h-32 text-center rounded-3xl border-4 outline-none transition-colors ${
+                        /* Änderung: Eingabetext ist nun schwarz/slate-800. Polsterung (p-0) hinzugefügt für saubere Zentrierung ohne verrutschen */
+                        className={`w-24 sm:w-32 md:w-40 lg:w-48 h-16 sm:h-24 md:h-28 lg:h-32 text-center text-inherit leading-none p-0 rounded-3xl border-4 outline-none transition-colors ${
                           feedback === 'correct' ? 'border-green-500 text-green-700 bg-white' :
                           feedback === 'wrong' ? 'border-red-500 text-red-700 bg-white' :
                           feedback === 'timeout' ? 'border-orange-500 text-orange-700 bg-white' :
-                          'border-slate-300 focus:border-blue-500 text-blue-600 bg-slate-50 shadow-inner'
+                          'border-blue-200 focus:border-blue-500 text-slate-800 bg-white shadow-inner'
                         }`}
                       />
                       <button type="submit" className="hidden">OK</button>
@@ -579,8 +582,8 @@ export default function App() {
       {/* Settings Modal (Global) */}
       {showSettings && renderSettingsModal()}
 
-      {/* Footer - Signatur */}
-      <div className="py-3 text-center text-slate-400 text-sm font-medium z-10 pointer-events-none mt-auto">
+      {/* Footer - Signatur (passt sich nun dem blauen Design an) */}
+      <div className="py-3 text-center text-blue-300 text-sm font-medium z-10 pointer-events-none mt-auto">
         &copy; etechnik3r development
       </div>
 
