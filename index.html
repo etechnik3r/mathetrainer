@@ -7,13 +7,13 @@
     
     <!-- Tailwind CSS laden  -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM laden -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    
-    <!-- Babel laden (Übersetzt JSX im Browser) -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- React & ReactDOM laden (feste Versionen, jsDelivr) -->
+    <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+
+    <!-- Babel laden (Übersetzt JSX im Browser) - feste Version -->
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.26.4/babel.min.js"></script>
 
     <style>
         input[type="number"]::-webkit-inner-spin-button,
@@ -27,9 +27,49 @@
     </style>
 </head>
 <body class="bg-blue-50">
-    <div id="root"></div>
+    <div id="root">
+        <!-- Platzhalter: wird von React ersetzt. Sichtbar, falls etwas nicht lädt. -->
+        <div id="loading-fallback" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;text-align:center;color:#1e3a8a;font-family:sans-serif;">
+            <div>
+                <div style="font-size:1.25rem;font-weight:700;">Mathe Trainer wird geladen…</div>
+                <div style="margin-top:.5rem;color:#64748b;">Falls diese Meldung bleibt, prüfe bitte die Internetverbindung.</div>
+            </div>
+        </div>
+    </div>
 
-    <script type="text/babel">
+    <!-- Zeigt Lade-/Skriptfehler an, statt nur einen leeren Bildschirm zu hinterlassen -->
+    <script>
+        (function () {
+            function showError(msg) {
+                var root = document.getElementById('root');
+                if (!root) return;
+                root.innerHTML =
+                    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;text-align:center;font-family:sans-serif;color:#7f1d1d;">' +
+                    '<div style="max-width:32rem;background:#fff;border:2px solid #fecaca;border-radius:1rem;padding:1.5rem;">' +
+                    '<div style="font-size:1.25rem;font-weight:700;">Mathe Trainer konnte nicht geladen werden</div>' +
+                    '<div style="margin-top:.75rem;color:#475569;">Wahrscheinlich wurde eine externe Bibliothek (React/Babel) nicht geladen. Bitte Internetverbindung prüfen und neu laden.</div>' +
+                    '<pre style="margin-top:.75rem;white-space:pre-wrap;text-align:left;color:#94a3b8;font-size:.75rem;">' + (msg || '') + '</pre>' +
+                    '</div></div>';
+            }
+            window.addEventListener('error', function (e) {
+                if (e && e.target && e.target.tagName === 'SCRIPT') {
+                    showError('Skript konnte nicht geladen werden: ' + (e.target.src || ''));
+                } else if (e && e.message) {
+                    showError(e.message);
+                }
+            }, true);
+            // Sicherheitsnetz: prüfen, ob die Kernbibliotheken nach dem Laden bereitstehen.
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    if (typeof React === 'undefined' || typeof ReactDOM === 'undefined' || typeof Babel === 'undefined') {
+                        showError('Benötigte Bibliotheken fehlen (React/ReactDOM/Babel nicht verfügbar).');
+                    }
+                }, 1500);
+            });
+        })();
+    </script>
+
+    <script type="text/babel" data-presets="env,react">
         const { useState, useEffect, useRef } = React;
 
         // --- Inline Icons (Ersatz für lucide-react) ---
