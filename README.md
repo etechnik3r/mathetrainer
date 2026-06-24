@@ -1,6 +1,6 @@
 # Mathe Trainer · Math Trainer
 
-🇩🇪 [Deutsch](#deutsch) · 🇬🇧 [English](#english)
+🇩🇪 [Deutsch](#deutsch) · 🇺🇸 [English](#english)
 
 ---
 
@@ -28,20 +28,20 @@ Es ist keine Installation nötig. Einfach die Datei `index.html` in einem modern
 
 ## English
 
-A child-friendly math trainer for kindergarten and primary school.
+A child-friendly math trainer for kindergarten and elementary school.
 
 ### What can it do?
-- Practises the basic operations: **addition, subtraction, multiplication and division**.
+- Practices the basic operations: **addition, subtraction, multiplication, and division**.
 - **Multiple profiles**: individual settings per child (name, difficulty, etc.).
-- **Adjustable number range** (e.g. up to 10, 100 or more).
-- **Times tables mode**: multiplication and division can be limited to 1·1 up to 10·10 (on by default), matching the primary-school curriculum.
+- **Adjustable number range** (e.g. up to 10, 100, or more).
+- **Times tables mode**: multiplication and division can be limited to 1×1 up to 10×10 (on by default), matching the elementary-school curriculum.
 - **Optional timed mode**: solve tasks against the clock with a configurable time limit.
 - **Motivation**: score counter, praise and a small reward (confetti) for solved tasks.
 - **Audio feedback** (can be muted) for correct and wrong answers.
 - **Bilingual**: German (default) and English, switchable in the settings.
 
 ### Who is it for?
-For kindergarten- and primary-school-age children practising arithmetic in a playful way – and for parents or teachers who want to tailor the difficulty.
+For kindergarten- and elementary-school-age children practicing arithmetic in a playful way – and for parents or teachers who want to tailor the difficulty.
 
 ### Usage
 No installation required. Just open `index.html` in a modern browser (an internet connection is needed on first load, as some libraries are loaded from a CDN).
